@@ -5,17 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="동아리의 웹 보안 코드 리뷰 활동 기록. 취약점의 원리와 개선 방향을 담은 공개용 보고서입니다.">
 <title>동아리 활동 | 웹 보안 코드 리뷰</title>
-<style>
-:root{color-scheme:light;--ink:#152a31;--muted:#52666b;--accent:#006d68;--line:#d8e1dd}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f5f5ef;color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI","Malgun Gothic",sans-serif;line-height:1.85;word-break:keep-all;overflow-wrap:anywhere}a{color:var(--accent);text-underline-offset:4px}a:focus-visible{outline:3px solid #da9b36;outline-offset:5px}.top{border-bottom:1px solid var(--line);padding:19px max(24px,calc((100vw - 980px)/2));display:flex;justify-content:space-between;gap:20px;font-size:14px}.brand{font-weight:750;text-decoration:none}.hero{max-width:980px;margin:auto;padding:64px 24px 40px}.eyebrow{font-size:12px;letter-spacing:.16em;color:var(--accent);font-weight:750}.hero h1{font-size:clamp(36px,7vw,64px);letter-spacing:-.06em;line-height:1.2;margin:18px 0}.intro{font-size:18px;color:var(--muted);max-width:630px}.tags{display:flex;gap:9px;flex-wrap:wrap;margin-top:26px}.tags span{border:1px solid var(--line);padding:4px 12px;border-radius:40px;font-size:12px}.download{display:inline-block;background:var(--accent);color:white;border-radius:7px;padding:10px 19px;text-decoration:none;font-size:14px;margin-top:25px}main{max-width:980px;margin:0 auto 60px;padding:0 24px}article{background:white;border:1px solid var(--line);border-radius:12px;padding:clamp(22px,5vw,58px)}article>h1{font-size:17px;color:var(--accent);margin:0}article h2{font-size:25px;letter-spacing:-.035em;line-height:1.45;margin:45px 0 18px}article>h1+h2{font-size:32px;margin-top:12px}article p,article li{font-size:16px}article li{margin:8px 0}article table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse;font-size:14px;margin:24px 0}th,td{text-align:left;border-bottom:1px solid var(--line);padding:13px;min-width:125px;vertical-align:top}th{background:#edf5f1}article blockquote{border-left:3px solid var(--accent);padding-left:20px;color:var(--muted)}footer{max-width:980px;margin:0 auto;padding:0 24px 35px;color:var(--muted);font-size:12px}.skip{position:absolute;left:16px;top:-100px}.skip:focus{top:8px;background:white;padding:12px;z-index:2}@media(max-width:540px){.hero{padding-top:40px}.top{font-size:12px}article h2{font-size:22px}article>h1+h2{font-size:27px}}@media print{.top,.download,.skip{display:none}body{background:white}.hero{padding-top:0}article{border:0;padding:0}main{max-width:none}}
-</style>
+<style>:root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#292929;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;font-size:16px;line-height:1.85;word-break:keep-all;overflow-wrap:anywhere}a{color:#365d8d;text-underline-offset:3px}a:hover{color:#183958}a:focus-visible{outline:2px solid #365d8d;outline-offset:4px}.top{max-width:780px;margin:0 auto;padding:26px 24px 20px;border-bottom:1px solid #eee}.brand{color:#333;text-decoration:none;font-size:17px;font-weight:650}main{max-width:780px;margin:0 auto;padding:42px 24px 60px}h1{font-size:30px;line-height:1.5;letter-spacing:-.04em;font-weight:700;margin:0 0 12px}h2{font-size:22px;line-height:1.5;margin:44px 0 16px;letter-spacing:-.025em}p{margin:18px 0}li{margin:7px 0}ul{padding-left:23px}.meta{font-size:13px;color:#777;margin:0 0 32px}.meta a{color:#777}table{display:block;width:100%;overflow-x:auto;border-collapse:collapse;font-size:14px;margin:24px 0}th,td{text-align:left;vertical-align:top;padding:11px 12px;border:1px solid #e5e5e5;min-width:130px}th{background:#fafafa;font-weight:600}footer{max-width:780px;margin:0 auto;padding:20px 24px 36px;border-top:1px solid #eee;color:#888;font-size:12px}.skip{position:absolute;top:-100px;left:16px}.skip:focus{top:8px;background:white;padding:10px}@media(max-width:540px){main{padding-top:30px}h1{font-size:25px}h2{font-size:20px}body{font-size:15px}}@media print{.top,.skip,footer,.meta a{display:none}main{max-width:none;padding:0}table{display:table;font-size:11px}}</style>
 </head>
 <body>
 <a class="skip" href="#report">본문으로 이동</a>
-<header class="top"><a class="brand" href="./">동아리 활동</a><span>보안 학습 기록 · 2026</span></header>
-<section class="hero"><div class="eyebrow">SECURITY STUDY / 01</div><h1>코드를 읽고,<br>보안을 배우다.</h1><p class="intro">직접 만든 실습용 웹 애플리케이션을 검토하며 발견한 문제와 더 안전한 코드를 위한 개선 방향을 기록했습니다.</p><div class="tags"><span>PHP · MySQL</span><span>코드 리뷰</span><span>공개용 편집본</span></div><a class="download" href="security-review-public.md" download>보고서 내려받기 (.md) ↓</a></section>
-<main id="report"><article><h1 id="section">동아리 활동</h1>
-<h2 id="section-1">실습용 웹 애플리케이션 보안 코드 리뷰</h2>
-<p>2026년 9월 21일 · 공개용 활동 기록 · PHP / MySQL</p>
+<header class="top"><a class="brand" href="./">동아리 활동</a></header>
+
+<main id="report"><article>
+<h1>실습용 웹 애플리케이션 보안 코드 리뷰</h1>
+<p class="meta"><time datetime="2026-09-21">2026. 9. 21.</time> · PHP / MySQL · <a href="security-review-public.md" download>원문 내려받기</a></p>
 <p>동아리에서 직접 제작한 실습용 웹 애플리케이션을 대상으로, 사용자 입력이 데이터베이스와 세션에 전달되는 흐름을 검토했다. 이 글은 발견 개수보다 문제의 원인과 개선 방법을 공유하기 위한 기록이다.</p>
 <p>대상 주소, 서비스명, 원본 파일명과 줄 번호, 계정 정보, 구체적인 공격 입력 및 재현 URL은 공개본에서 제외했다. 원본 애플리케이션과 설치 자료도 공개하지 않는다.</p>
 <h2 id="section-2">활동 범위와 판단 기준</h2>
@@ -112,5 +110,6 @@
 <li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html">OWASP CSRF 예방 지침</a></li>
 </ul>
 <p>이 글은 허가된 동아리 실습의 학습 기록이다. 대상 식별 정보와 구체적인 공격 방법을 제외한 공개용 편집본이다.</p>
-</article></main><footer>동아리 활동 · 대상 식별 정보와 상세 공격 입력을 제외한 학습 기록</footer>
+</article></main><footer>동아리 활동</footer>
 </body></html>
+
