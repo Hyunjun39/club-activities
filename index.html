@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="동아리의 웹 보안 코드 리뷰 활동 기록. 취약점의 원리와 개선 방향을 담은 공개용 보고서입니다.">
+<title>동아리 활동 | 웹 보안 코드 리뷰</title>
+<style>
+:root{color-scheme:light;--ink:#152a31;--muted:#52666b;--accent:#006d68;--line:#d8e1dd}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f5f5ef;color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI","Malgun Gothic",sans-serif;line-height:1.85;word-break:keep-all;overflow-wrap:anywhere}a{color:var(--accent);text-underline-offset:4px}a:focus-visible{outline:3px solid #da9b36;outline-offset:5px}.top{border-bottom:1px solid var(--line);padding:19px max(24px,calc((100vw - 980px)/2));display:flex;justify-content:space-between;gap:20px;font-size:14px}.brand{font-weight:750;text-decoration:none}.hero{max-width:980px;margin:auto;padding:64px 24px 40px}.eyebrow{font-size:12px;letter-spacing:.16em;color:var(--accent);font-weight:750}.hero h1{font-size:clamp(36px,7vw,64px);letter-spacing:-.06em;line-height:1.2;margin:18px 0}.intro{font-size:18px;color:var(--muted);max-width:630px}.tags{display:flex;gap:9px;flex-wrap:wrap;margin-top:26px}.tags span{border:1px solid var(--line);padding:4px 12px;border-radius:40px;font-size:12px}.download{display:inline-block;background:var(--accent);color:white;border-radius:7px;padding:10px 19px;text-decoration:none;font-size:14px;margin-top:25px}main{max-width:980px;margin:0 auto 60px;padding:0 24px}article{background:white;border:1px solid var(--line);border-radius:12px;padding:clamp(22px,5vw,58px)}article>h1{font-size:17px;color:var(--accent);margin:0}article h2{font-size:25px;letter-spacing:-.035em;line-height:1.45;margin:45px 0 18px}article>h1+h2{font-size:32px;margin-top:12px}article p,article li{font-size:16px}article li{margin:8px 0}article table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse;font-size:14px;margin:24px 0}th,td{text-align:left;border-bottom:1px solid var(--line);padding:13px;min-width:125px;vertical-align:top}th{background:#edf5f1}article blockquote{border-left:3px solid var(--accent);padding-left:20px;color:var(--muted)}footer{max-width:980px;margin:0 auto;padding:0 24px 35px;color:var(--muted);font-size:12px}.skip{position:absolute;left:16px;top:-100px}.skip:focus{top:8px;background:white;padding:12px;z-index:2}@media(max-width:540px){.hero{padding-top:40px}.top{font-size:12px}article h2{font-size:22px}article>h1+h2{font-size:27px}}@media print{.top,.download,.skip{display:none}body{background:white}.hero{padding-top:0}article{border:0;padding:0}main{max-width:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#report">본문으로 이동</a>
+<header class="top"><a class="brand" href="./">동아리 활동</a><span>보안 학습 기록 · 2026</span></header>
+<section class="hero"><div class="eyebrow">SECURITY STUDY / 01</div><h1>코드를 읽고,<br>보안을 배우다.</h1><p class="intro">직접 만든 실습용 웹 애플리케이션을 검토하며 발견한 문제와 더 안전한 코드를 위한 개선 방향을 기록했습니다.</p><div class="tags"><span>PHP · MySQL</span><span>코드 리뷰</span><span>공개용 편집본</span></div><a class="download" href="security-review-public.md" download>보고서 내려받기 (.md) ↓</a></section>
+<main id="report"><article><h1 id="section">동아리 활동</h1>
+<h2 id="section-1">실습용 웹 애플리케이션 보안 코드 리뷰</h2>
+<p>2026년 9월 21일 · 공개용 활동 기록 · PHP / MySQL</p>
+<p>동아리에서 직접 제작한 실습용 웹 애플리케이션을 대상으로, 사용자 입력이 데이터베이스와 세션에 전달되는 흐름을 검토했다. 이 글은 발견 개수보다 문제의 원인과 개선 방법을 공유하기 위한 기록이다.</p>
+<p>대상 주소, 서비스명, 원본 파일명과 줄 번호, 계정 정보, 구체적인 공격 입력 및 재현 URL은 공개본에서 제외했다. 원본 애플리케이션과 설치 자료도 공개하지 않는다.</p>
+<h2 id="section-2">활동 범위와 판단 기준</h2>
+<p>PHP 16개와 SQL·CSS·안내 문서 각 1개, 총 19개 파일을 정적으로 검토했다. 입력 처리, 데이터베이스 질의, 객체별 권한 검사, 세션 관리와 출력 처리를 살펴봤다.</p>
+<p>이 기록은 제공된 소스를 읽어 분석한 결과다. 운영 환경에서 모든 문제를 실행해 재현한 결과가 아니며, 수정 완료를 의미하지도 않는다. 서버 설정과 실제 배포 코드가 다르면 영향도 달라질 수 있다. 프로필 조회 문제는 해당 정보가 비공개라는 정책을 전제로 한다.</p>
+<h2 id="section-3">주요 발견 사항</h2>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>코드에서 확인한 문제</th>
+<th>개선 방향</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>로그인 SQL 인젝션</td>
+<td>아이디를 SQL 문자열에 직접 결합</td>
+<td>매개변수 바인딩으로 쿼리와 데이터 분리</td>
+</tr>
+<tr>
+<td>검색 SQL 인젝션</td>
+<td>검색어를 SQL 조건에 직접 결합</td>
+<td>바인딩된 검색 쿼리와 입력 길이 제한</td>
+</tr>
+<tr>
+<td>댓글 삭제 권한</td>
+<td>로그인만 확인하고 댓글 소유자 검사 생략</td>
+<td>객체·소유자·상위 게시글 관계 검증</td>
+</tr>
+<tr>
+<td>프로필 조회 권한</td>
+<td>다른 회원의 정보를 지정해 조회 가능</td>
+<td>공개 정책 확정 후 필드별 접근 제한</td>
+</tr>
+<tr>
+<td>CSRF 방어</td>
+<td>상태 변경 요청의 출처·토큰 검증 부재</td>
+<td>POST와 서버 측 CSRF 검증</td>
+</tr>
+<tr>
+<td>세션 무효화</td>
+<td>삭제·권한 변경 전 세션 값을 계속 신뢰</td>
+<td>최신 계정 상태 확인 및 전체 세션 폐기</td>
+</tr>
+<tr>
+<td>비밀번호 정책</td>
+<td>빈 값 외의 강도 검사 부재</td>
+<td>서버 측 길이·흔한 비밀번호 검증</td>
+</tr>
+<tr>
+<td>오류 정보 노출</td>
+<td>DB 연결 예외를 화면에 출력</td>
+<td>일반 오류 응답과 보호된 상세 로그 분리</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sql">1. SQL 인젝션: 비밀번호 검증만으로 충분하지 않다</h2>
+<p>로그인과 검색 기능에서 입력값이 SQL 문자열에 직접 들어가는 흐름을 확인했다. 입력은 데이터로만 처리되어야 하는데, 쿼리의 문법에 영향을 줄 수 있는 구조였다.</p>
+<p>로그인은 조회 후 비밀번호 해시를 검증하고 있었다. 따라서 단순히 조회 조건을 참으로 만드는 것만으로 로그인에 성공한다고 단정할 수는 없다. 그러나 인증에 사용하는 조회 결과 자체를 신뢰할 수 없다면, 후속 비밀번호 검증도 전체 인증 흐름의 안전성을 보장하지 못한다.</p>
+<p>개선의 핵심은 모든 관련 질의에 매개변수 바인딩을 사용하는 것이다. 오류를 숨기거나 HTML을 이스케이프하는 것으로 SQL 인젝션이 해결되지는 않는다.</p>
+<h2 id="section-4">2. 접근 제어: 로그인과 소유권은 다르다</h2>
+<p>댓글 삭제는 로그인 상태만 확인하고 댓글 작성자 여부를 검사하지 않았다. SQL 인젝션을 막는 바인딩이 있어도 객체 권한 검사가 없으면 다른 사람의 데이터에 영향을 줄 수 있다.</p>
+<p>서버는 요청마다 수행할 동작, 사용자 권한, 대상 객체의 소유 관계를 확인해야 한다. 화면에서 버튼을 숨기는 것은 서버 측 검사를 대신할 수 없다.</p>
+<p>프로필은 공개 정책이 중요하다. 공개 프로필 조회 자체는 취약점이 아니다. 본인에게만 보여야 하는 필드가 다른 회원에게도 보일 때 접근 제어 문제로 평가해야 한다.</p>
+<h2 id="csrf">3. CSRF: 상태 변경에는 요청 검증이 필요하다</h2>
+<p>삭제를 일반 링크의 GET 요청으로 처리하는 흐름과, POST 요청에서 CSRF 토큰이나 요청 출처를 검사하지 않는 흐름을 확인했다.</p>
+<p>피해자의 세션이 함께 전달되는 요청에서는 정상 사용자 권한 검사만으로 사용자의 의도까지 확인할 수 없다. 브라우저 쿠키 정책은 영향을 주지만, 특히 GET으로 데이터를 삭제하는 설계의 충분한 방어로 볼 수 없다.</p>
+<p>삭제는 POST로 제한하고, 세션에 연결된 예측 불가능한 토큰을 서버에서 검증해야 한다. 회원탈퇴처럼 중요한 작업에는 최근 재인증도 고려한다. 화면의 확인 대화상자는 서버 측 검증을 대체하지 않는다.</p>
+<h2 id="section-5">4. 세션: 계정 삭제와 로그인 종료는 별개다</h2>
+<p>인증 함수가 로그인 당시의 세션 값만 확인했다. 계정이 삭제되거나 관리자 권한이 바뀌어도 기존 세션에는 이전 정보가 남을 수 있었다.</p>
+<p>데이터베이스에서 계정을 삭제하는 것과 모든 브라우저의 세션을 무효화하는 것은 별도의 작업이다. 계정 상태와 현재 권한을 확인하거나, 중앙 세션 관리·계정별 세션 버전으로 변경을 반영해야 한다.</p>
+<h2 id="section-6">5. 비밀번호와 오류 처리</h2>
+<p>비밀번호 해시 저장은 구현돼 있었지만 가입 시 강도 검사는 부족했다. 안전한 저장 방식과 추측하기 어려운 비밀번호 정책은 서로 다른 방어다. 서버에서 비밀번호 정책을 검증하고 로그인 시도 제한도 함께 검토해야 한다.</p>
+<p>DB 연결 실패 시 상세 예외를 화면에 보여주는 처리도 있었다. 외부에는 일반적인 오류 메시지를 반환하고, 운영자가 필요한 상세 정보는 접근이 제한된 로그에 남기는 편이 적절하다.</p>
+<h2 id="section-7">수정 후 확인할 기준</h2>
+<ul>
+<li>특수문자가 포함된 입력이 쿼리의 구조를 바꾸지 않는다.</li>
+<li>사용자 A는 사용자 B의 댓글을 삭제할 수 없다.</li>
+<li>비공개 프로필 필드는 허용된 사용자에게만 보인다.</li>
+<li>GET이나 잘못된 CSRF 토큰으로는 데이터가 변경되지 않는다.</li>
+<li>계정 삭제·권한 변경 직후 기존 세션에도 제한이 반영된다.</li>
+<li>약한 비밀번호는 서버에서 거부되고 정상 비밀번호는 사용할 수 있다.</li>
+<li>오류 응답에 내부 연결 정보가 나타나지 않는다.</li>
+<li>정상 사용자의 작성·조회·수정 기능은 계속 동작한다.</li>
+</ul>
+<p>검증에는 격리된 복제본, 가상 데이터, 서로 다른 시험 계정을 사용한다. 이 목록은 검증 계획이며 실행 완료 기록은 아니다.</p>
+<h2 id="section-8">이번 활동에서 배운 점</h2>
+<p>실습용 취약 모드를 끄면 일부 분기는 개선되지만, 공통 인증·세션·요청 처리의 문제가 자동으로 해결되지는 않는다. 코드의 안전 여부는 기능마다 입력부터 상태 변경까지 따라가며 확인해야 한다.</p>
+<p>또한 발견하지 못한 문제를 있다고 단정하지 않는 것이 중요하다. 검토한 출력 경로에는 HTML 이스케이프가 있었고, 비밀번호 해시 검증과 로그인 성공 시 세션 ID 재생성도 구현돼 있었다. 취약한 부분과 이미 적용된 방어를 함께 기록해야 개선 방향이 명확해진다.</p>
+<h2 id="section-9">참고 자료</h2>
+<ul>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html">OWASP SQL 인젝션 예방 지침</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html">OWASP CSRF 예방 지침</a></li>
+</ul>
+<p>이 글은 허가된 동아리 실습의 학습 기록이다. 대상 식별 정보와 구체적인 공격 방법을 제외한 공개용 편집본이다.</p>
+</article></main><footer>동아리 활동 · 대상 식별 정보와 상세 공격 입력을 제외한 학습 기록</footer>
+</body></html>
