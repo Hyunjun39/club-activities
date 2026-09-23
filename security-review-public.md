@@ -1,9 +1,11 @@
-# 동아리 활동 모의해킹 과제
+# SECURE MART 보안 스터디 모의해킹 과제
 
 **작성일:** 2026-09-23  
 **분류:** Hacking / Security / Web  
-**작성자:** Hyunjun39
+**작성자:** Codex (AI 보조 분석)
 
+> 본 문서는 보안 스터디 및 모의해킹 실습을 목적으로 작성되었습니다.  
+> 모든 테스트는 사용자가 제공한 소스코드와 사전에 허가받았다고 명시한 환경에서만 진행했습니다.
 
 ---
 
@@ -11,561 +13,584 @@
 
 ### 1.1 점검 대상
 
-- 대상: 동아리 실습용 PHP 웹 애플리케이션
-- 환경: 직접 구축한 웹 서버와 제공된 PHP / MySQL 소스
-- 점검일: 2026-09-21 / 보고서 재정리: 2026-09-23
-- 범위: 로그인, 회원가입, 게시판 검색, 댓글 삭제, 프로필, 관리자 기능, 계정 삭제, 공통 인증 코드
+- 대상: SECURE MART
+- 대상 URL: `https://hxunjxn119.xo.je/?i=2`
+- 제공 파일: `shopping_ctf_infinityfree.zip`
+- 환경: InfinityFree에 배포된 허가받은 PHP/MySQL 실습 서버
+- 점검 기간: 2026-09-23
+- 점검 범위: 로그인, 회원가입, 프로필, 게시판 검색, 게시글·댓글, 관리자 기능, 세션 및 HTTP 보안 설정
 
 ### 1.2 점검 방식
 
-**Black-Box:** 홈페이지와 로그인·회원가입 화면을 확인하고, 제한적인 로그인 실패 응답을 관찰했다. 관리자 로그인, 타인 정보 조회, 데이터 삭제는 시험하지 않았다. 게시판은 접속 오류 때문에 실제 검색 동작을 검증하지 못했다.
+웹 애플리케이션을 대상으로 다음 방식의 보안 점검을 진행했다.
 
-**White-Box:** 제공된 소스 19개 파일을 검토했다. 입력값이 SQL에 전달되는 과정, 대상 데이터의 소유자 확인, 세션 및 오류 처리를 살펴봤다. 설정 파일에는 실습용 취약 모드가 활성화돼 있었다.
+- **Black-Box:** 공개 페이지 및 인증 경계의 HTTP 요청·응답 차이 분석
+- **White-Box:** 제공된 PHP 및 SQL 소스코드 분석
+- **검증 원칙:** 데이터 변경과 서비스 장애를 피하고 취약점 확인에 필요한 최소 요청만 수행
 
-아래 위험도는 소스와 예상 영향을 기준으로 정한 정성 평가다. 배포 서버의 코드가 제공된 소스와 완전히 같은지는 확인하지 않았다. 수정 코드는 제안이며, 실제 적용이나 PHP / MySQL 환경에서의 재시험은 아직 하지 않았다.
+호스팅사의 JavaScript 쿠키 검증을 정상 처리한 뒤 애플리케이션에 접근했다. SQL Injection은 데이터 변경이 없는 Boolean 조건 및 합성 행으로 확인했다. 프로필 IDOR 검증을 위해 일반 테스트 계정 1개를 생성했으며, 검증 직후 정상적으로 탈퇴 처리했다. 실제 댓글·게시글·회원 또는 관리자 데이터는 삭제하거나 변경하지 않았다.
 
 ### 1.3 주요 점검 결과
 
-| 번호 | 점검 항목 | 위치 | 위험도 | 확인 방식 |
-| --- | --- | --- | --- | --- |
-| S01 | 로그인 SQL 인젝션 | 사용자 조회 | High | White-Box / 제한적 웹 시험 |
-| S02 | 검색 SQL 인젝션 | 게시판 검색 | High | White-Box |
-| S03 | 댓글 삭제 권한 검증 누락 | 댓글 삭제 | High | White-Box |
-| S04 | 프로필 조회 권한 검토 | 회원정보 조회 | Medium, 비공개 정책일 때 | White-Box / 정책 확인 필요 |
-| S05 | CSRF 방어 누락 | 상태 변경 기능 | High | White-Box / 일부 폼 관찰 |
-| S06 | 계정 상태·권한 변경 후 세션 유지 | 공통 인증 | High | White-Box |
-| S07 | 약한 비밀번호 허용 | 회원가입 | Medium | White-Box |
-| S08 | DB 예외 메시지 노출 | DB 연결 실패 처리 | Low | White-Box |
+| 번호 | 취약점 | 위치 | 위험도 | 확인 방식 |
+|---|---|---|---|---|
+| 1 | 로그인 SQL Injection 및 인증 우회 | `login.php`, `username` | High | Black-Box + White-Box |
+| 2 | 게시판 검색 SQL Injection | `board.php`, `q` | High | Black-Box + White-Box |
+| 3 | 프로필 조회 IDOR | `profile.php`, `id` | Medium | Black-Box + White-Box |
+| 4 | 댓글 삭제 IDOR | `post.php`, `delete_comment` | Medium | White-Box |
+| 5 | 전역적 CSRF 방어 부재 및 GET 상태 변경 | 관리자·계정·게시글·댓글 기능 | High | White-Box |
+| 6 | 세션 쿠키 및 HTTP 보안 헤더 미흡 | 전역 HTTP 응답 | Medium | Black-Box + White-Box |
+
+확인된 취약점은 총 **6개**이며, High 3개와 Medium 3개이다.
 
 ---
 
 ## 2. 취약점 상세
 
-### 2.1 로그인 SQL 인젝션
+## 2.1 로그인 SQL Injection 및 인증 우회
 
-#### 개요
+### 개요
 
-아이디를 SQL 문자열에 직접 넣고 있었다. 입력값이 데이터로만 처리되지 않고 조회 조건의 일부가 될 수 있는 구조다.
+로그인 아이디가 SQL 문자열에 직접 결합된다. 공격자는 `UNION SELECT`로 임의의 사용자 행과 비밀번호 해시를 구성하여 데이터베이스에 계정을 만들지 않고도 인증된 세션을 발급받을 수 있다. 합성 행의 `is_admin` 값도 조작할 수 있어 관리자 권한 획득으로 확대될 가능성이 있다.
 
-#### 발견 위치
+### 발견 위치
 
-- 기능: 로그인 시 사용자 조회
-- 경로: 로그인 처리 파일, 공개본에서 실제 경로 생략
+- 기능: 로그인
+- 경로: `/login.php`
 - 파라미터: `username`
-- 확인 방식: White-Box. 웹 시험에서는 로그인 실패 응답만 확인
-- 조건: `VULN_MODE`가 활성화된 분기
+- 소스 위치: `login.php:9-15`
+- 확인 방식: Black-Box + White-Box
+- 관련 분류: CWE-89 (SQL Injection), CWE-287 (Improper Authentication)
 
-#### 원인
-
-다음은 원본에서 입력 처리와 조회 부분을 발췌한 것이다. 예외 처리 등 주변 코드는 생략했다.
-
-```php
-$username = $_POST['username'] ?? '';
-$password = $_POST['password'] ?? '';
-
-$sql = "SELECT * FROM users WHERE username = '$username' LIMIT 1";
-$user = $pdo->query($sql)->fetch();
-```
-
-문제는 `username = '$username'`이다. PHP가 입력값을 끼워 넣어 SQL 문장을 완성한 뒤 DB에 보낸다. 아이디에 작은따옴표가 들어가면 문자열 경계와 충돌할 수 있고, 뒤에 이어지는 내용이 SQL 문법으로 해석될 수 있다. 사용자 입력이 쿼리의 구조를 바꿀 수 있다는 점이 원인이다.
-
-원본은 쿼리 오류를 일반적인 로그인 실패로 처리했다. 오류를 숨겨도 입력이 SQL에 섞이는 구조는 그대로 남는다.
-
-조회 다음에는 비밀번호 검증이 있었다.
+### 원인
 
 ```php
+if (VULN_MODE) {
+    $sql = "SELECT * FROM users WHERE username = '$username' LIMIT 1";
+    try {
+        $user = $pdo->query($sql)->fetch();
+    } catch (PDOException $e) {
+        $user = false;
+    }
+}
+
 if ($user && password_verify($password, $user['password'])) {
-    session_regenerate_id(true);
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['is_admin'] = $user['is_admin'];
 }
 ```
 
-조건을 바꿔 기존 사용자가 조회되더라도 해당 행의 비밀번호 검증을 통과해야 한다. 따라서 SQL 인젝션이 있다는 사실과 단순한 조건 변경으로 로그인에 성공한다는 주장은 구분해야 한다. 반대로 인증에 사용하는 결과 행 자체가 조작될 수 있다면 비밀번호 해시와 권한 값도 신뢰하기 어렵다.
+`username`에 포함된 따옴표와 SQL 구문이 그대로 해석된다. 또한 조회 결과의 `id`, `password`, `nickname`, `is_admin`을 검증 없이 세션에 복사하므로, 공격자가 합성한 행도 정상 계정처럼 처리된다.
 
-#### 검증
+### 검증
 
-- 웹 시험: 존재하지 않는 아이디와 SQL 해석에 영향을 줄 수 있는 입력을 포함해 총 3회 실패 응답을 관찰했다.
-- 결과: 모두 일반적인 로그인 실패 안내가 나왔으며 로그인 우회나 관리자 접근은 확인하지 못했다.
-- 소스 확인: 입력값을 직접 연결한 SQL과 `query()` 실행을 확인했다.
-- 공개본에는 실제 시험 입력을 싣지 않았다. 결과 행 조작이나 정보 추출은 실행하지 않았다.
+실제 서버에서 DB 쓰기가 발생하지 않는 다음 형태의 합성 행을 사용했다. 보고서에는 검증용 bcrypt 값만 생략했다.
 
-#### 영향
+```text
+username=' UNION SELECT 2147483647,'audit_union','<검증용 bcrypt>',
+         'Audit Union',NULL,0,NOW() #
+password=<bcrypt와 일치하는 검증용 비밀번호>
+```
 
-- 인증에 사용할 사용자 조회 결과가 달라질 수 있다.
-- DB 권한과 쿼리 조작 가능 범위에 따라 인증 우회나 정보 노출로 이어질 수 있다.
+- 로그인 응답: `HTTP 302`, `Location: index.php`
+- 후속 `/index.php` 응답: `HTTP 200`
+- 확인 결과: 비로그인 화면에는 없던 `마이페이지`, `프로필`, `로그아웃` 메뉴가 노출됨
+- 데이터베이스 변경: 없음
+- 정리: 발급된 세션으로 `/logout.php` 요청 후 `HTTP 302` 확인
+
+관리자 데이터 조회나 상태 변경은 수행하지 않았다. 이번 검증은 `is_admin=0`인 합성 사용자로 제한했다. 다만 동일 입력에서 값을 `1`로 바꿀 수 있고 서버가 이 값을 세션에 그대로 저장하므로 관리자 권한 상승 가능성이 코드상 확인된다.
+
+### 영향
+
+- 비밀번호 없이 임의 사용자로 인증 우회
+- 세션에 저장되는 사용자 ID 및 닉네임 위조
+- `is_admin` 조작을 통한 관리자 기능 접근 가능성
+- 다른 취약점과 연계한 회원·게시글 데이터 침해
 
 **위험도:** High
 
-#### 대응 방안
+### 대응 방안
 
-취약한 분기를 없애고 항상 매개변수 바인딩을 사용한다. 원본의 안전 모드에도 같은 방식이 있었다.
+취약 모드 분기를 제거하고 모든 환경에서 Prepared Statement를 사용한다. 로그인 직전 사용자 상태를 서버가 신뢰할 수 있는 DB 레코드로부터 다시 검증하는 것이 좋다.
 
 ```php
 $stmt = $pdo->prepare(
-    'SELECT * FROM users WHERE username = ? LIMIT 1'
+    'SELECT id, username, password, nickname, is_admin
+       FROM users
+      WHERE username = :username
+      LIMIT 1'
 );
-$stmt->execute([$username]);
+$stmt->execute(['username' => $username]);
 $user = $stmt->fetch();
+
+if ($user && password_verify($password, $user['password'])) {
+    session_regenerate_id(true);
+    $_SESSION['user_id'] = (int)$user['id'];
+    $_SESSION['username'] = $user['username'];
+    $_SESSION['nickname'] = $user['nickname'];
+    $_SESSION['is_admin'] = (int)$user['is_admin'];
+    header('Location: index.php');
+    exit;
+}
 ```
 
-SQL 구조와 입력값을 따로 전달한다. 조회 후 `password_verify()`와 로그인 성공 시 세션 ID 재생성은 유지한다. 수정 후에는 정상 로그인, 잘못된 비밀번호, 따옴표가 포함된 아이디를 각각 확인해야 한다.
+추가적으로 다음 조치를 적용한다.
+
+- `VULN_MODE` 및 취약 분기를 배포본에서 완전히 제거
+- 로그인 시도 횟수 제한과 지연 적용
+- 관리자 계정에 다중 인증 적용
+- 인증 성공·실패와 관리자 접근에 대한 감사 로그 기록
 
 ---
 
-### 2.2 게시판 검색 SQL 인젝션
+## 2.2 게시판 검색 SQL Injection
 
-#### 개요
+### 개요
 
-검색어도 SQL에 직접 들어갔다. 로그인하지 않은 요청에서도 검색 쿼리가 실행되는 코드였다.
+검색어가 두 개의 `LIKE` 조건에 직접 삽입된다. 공격자는 조건식을 변경해 검색 결과를 조작할 수 있으며, 더 복잡한 구문으로 데이터베이스 정보를 조회할 가능성이 있다.
 
-#### 발견 위치
+### 발견 위치
 
-- 기능: 게시판 제목·본문 검색
-- 경로: 게시판 목록 처리 파일, 실제 경로 생략
+- 기능: 게시판 검색
+- 경로: `/board.php`
 - 파라미터: `q`
-- 확인 방식: White-Box
-- 조건: 취약 모드에서 검색어가 비어 있지 않은 경우
+- 소스 위치: `board.php:5-12`
+- 확인 방식: Black-Box + White-Box
+- 관련 분류: CWE-89 (SQL Injection)
 
-#### 원인
+### 원인
+
+```php
+if (VULN_MODE) {
+    $sql = "SELECT * FROM posts
+            WHERE title LIKE '%$q%' OR content LIKE '%$q%'
+            ORDER BY id DESC";
+    try {
+        $posts = $pdo->query($sql)->fetchAll();
+    } catch (Exception $e) {
+        $posts = [];
+    }
+}
+```
+
+검색어를 SQL 문자열에 직접 연결하며, 예외를 빈 결과로 바꾸기 때문에 문법 오류 역시 응답 차이를 만드는 Oracle로 사용될 수 있다.
+
+### 검증
+
+실제 서버에서 읽기 전용 Boolean 조건으로 확인했다.
+
+| 요청 입력 | HTTP 상태 | 응답 크기 | 게시글 데이터 행 |
+|---|---:|---:|---:|
+| `q='` | 200 | 933 bytes | 0 |
+| `q=' AND 1=1 #` | 200 | 1,080 bytes | 1 |
+| `q=' AND 1=2 #` | 200 | 943 bytes | 0 |
+
+참·거짓 조건에 따라 동일 검색 기능의 결과가 달라졌으며, 소스의 문자열 결합 구문과 일치했다. 데이터 추출, 시간 지연, 파일 접근 또는 데이터 변경 페이로드는 사용하지 않았다.
+
+### 영향
+
+- 게시글 외 데이터의 비인가 조회 가능성
+- 사용자 계정 및 비밀번호 해시 노출 가능성
+- DB 권한에 따라 데이터 변조·삭제로 확대될 가능성
+- Blind SQL Injection을 통한 스키마 및 데이터 추론
+
+**위험도:** High
+
+### 대응 방안
 
 ```php
 $q = trim($_GET['q'] ?? '');
+$like = '%' . $q . '%';
 
-$sql = "SELECT * FROM posts
-        WHERE title LIKE '%$q%' OR content LIKE '%$q%'
-        ORDER BY id DESC";
-$posts = $pdo->query($sql)->fetchAll();
-```
-
-`$q`가 두 개의 `LIKE` 조건에 그대로 삽입된다. `trim()`은 양끝의 공백 등을 제거할 뿐 SQL 문법을 분리하지 않는다. 검색어를 감싼 `%`도 검색 와일드카드이지 보안 처리가 아니다.
-
-검색 결과에 적용한 HTML 이스케이프 역시 SQL 실행 단계의 문제를 막지 못한다.
-
-#### 검증
-
-소스에서 입력부터 쿼리 실행까지의 흐름을 확인했다. 웹에서는 게시판 접속 오류가 발생해 검색 결과나 정보 유출을 재현하지 못했다. 이 접속 오류 자체를 취약점의 증거로 보지는 않았다.
-
-#### 영향
-
-- 의도한 검색 조건을 바꿀 수 있다.
-- 조회 결과가 화면에 표시되므로 DB 권한과 쿼리 제약에 따라 다른 데이터가 노출될 수 있다.
-
-**위험도:** High
-
-#### 대응 방안
-
-```php
 $stmt = $pdo->prepare(
-    'SELECT * FROM posts
-     WHERE title LIKE ? OR content LIKE ?
-     ORDER BY id DESC'
+    'SELECT id, author_id, author_name, title, content, views, created_at
+       FROM posts
+      WHERE title LIKE :title OR content LIKE :content
+      ORDER BY id DESC'
 );
-$pattern = '%' . $q . '%';
-$stmt->execute([$pattern, $pattern]);
+$stmt->execute([
+    'title' => $like,
+    'content' => $like,
+]);
 $posts = $stmt->fetchAll();
 ```
 
-와일드카드를 포함한 검색 문자열 전체를 값으로 전달한다. 사용자가 입력한 `%`와 `_`를 검색 와일드카드로 허용할지는 별도로 정할 검색 정책이다. SQL 인젝션 방어와 혼동하지 않아야 한다.
+추가적으로 DB 계정에는 애플리케이션에 필요한 최소 권한만 부여하고, SQL 예외 상세는 사용자에게 반환하지 않도록 한다.
 
 ---
 
-### 2.3 댓글 삭제 권한 검증 누락
+## 2.3 프로필 조회 IDOR
 
-#### 개요
+### 개요
 
-로그인 여부는 확인하지만 삭제 대상 댓글의 작성자는 확인하지 않았다.
+로그인 사용자가 URL의 `id` 값을 바꾸면 다른 사용자의 프로필을 조회할 수 있다. 객체 소유권 또는 공개 범위에 대한 서버 측 인가가 없다.
 
-#### 발견 위치
+### 발견 위치
 
-- 기능: 댓글 삭제
-- 경로: 게시글 상세 처리 파일, 실제 경로 생략
-- 파라미터: 삭제할 댓글 ID
-- 확인 방식: White-Box
-- 조건: 로그인 상태이며 취약 모드가 활성화된 경우
-
-#### 원인
-
-```php
-$pdo->prepare('DELETE FROM comments WHERE id=?')->execute([$cid]);
-```
-
-원본의 취약 분기에서 실행하는 쿼리다. 바인딩으로 SQL 문법은 보호하지만, 로그인한 사람이 이 댓글을 삭제할 권한이 있는지는 검사하지 않는다. 댓글 ID를 정수로 바꿔도 소유자 확인을 대신할 수 없다.
-
-#### 검증
-
-삭제 조건에 댓글 ID만 있고 사용자 ID와 게시글 ID는 없는 것을 확인했다. 실제 타인의 댓글을 삭제하는 시험은 하지 않았다. 게시물 수정·삭제에는 작성자 또는 관리자 확인이 있어 이 문제와 구분했다.
-
-#### 영향
-
-- 로그인한 일반 사용자가 다른 회원의 댓글을 삭제할 수 있는 코드 경로가 존재한다.
-- 게시글과 삭제 대상 댓글의 관계도 검증하지 않는다.
-
-**위험도:** High
-
-#### 대응 방안
-
-아래는 로그인·현재 계정 상태 확인과 POST·CSRF 검증을 마친 뒤 실행할 삭제 쿼리 예시다. 요청 검증은 2.5절, 현재 계정 확인은 2.6절을 참고한다.
-
-```php
-$stmt = $pdo->prepare(
-    'DELETE FROM comments WHERE id=? AND user_id=? AND post_id=?'
-);
-$stmt->execute([$cid, $currentUser['id'], $postId]);
-```
-
-댓글 ID와 게시글 ID는 정수 범위도 검증한다. 화면에서 버튼을 숨기는 것에 그치지 않고 서버에서 소유자를 검사해야 한다. 관리자 삭제를 허용한다면 현재 관리자 권한을 확인하는 별도 분기를 둔다.
-
----
-
-### 2.4 프로필 조회 권한 검토
-
-#### 개요
-
-다른 회원의 ID를 지정해 프로필을 조회할 수 있었다. 다만 공개 프로필로 설계한 기능이라면 이것만으로 취약점이라고 할 수 없다.
-
-#### 발견 위치
-
-- 기능: 회원 프로필 조회
-- 경로: 프로필 처리 파일, 실제 경로 생략
+- 기능: 프로필 조회
+- 경로: `/profile.php`
 - 파라미터: `id`
-- 확인 방식: White-Box / 공개 범위 정책 확인 필요
-- 조건: 로그인 상태이며 취약 모드가 활성화된 경우
+- 소스 위치: `profile.php:5`, `profile.php:16-23`
+- 확인 방식: Black-Box + White-Box
+- 관련 분류: CWE-639 (Authorization Bypass Through User-Controlled Key)
 
-#### 원인
+### 원인
 
 ```php
 $id = (int)($_GET['id'] ?? $_SESSION['user_id']);
-$stmt = $pdo->prepare(
-    'SELECT id,username,nickname,bio,created_at FROM users WHERE id=?'
-);
-$stmt->execute([$id]);
-```
 
-입력한 ID에 해당하는 계정을 조회한다. 정수 변환과 바인딩은 있지만, 본인의 정보인지 확인하는 조건은 없다.
-
-#### 검증
-
-취약 모드는 요청 ID를, 안전 모드는 세션의 사용자 ID를 조회에 사용하는 것을 확인했다. 실제 다른 회원의 프로필은 조회하지 않았다. 프로필 수정에는 본인 확인이 있으므로 타인 정보 수정까지 가능한 문제로 확대하지 않았다.
-
-#### 영향
-
-- 본인만 볼 수 있어야 하는 정책이라면 자기소개와 가입일 등 회원정보가 노출될 수 있다.
-- 공개 프로필 정책이라면 노출할 필드가 의도한 범위인지 확인하는 항목이다.
-
-**위험도:** Medium, 비공개 프로필 정책일 때. 현재는 정책 확인 필요.
-
-#### 대응 방안
-
-본인 전용 페이지라면 요청 ID 대신 확인된 현재 사용자 ID를 사용한다.
-
-```php
-$stmt = $pdo->prepare(
-    'SELECT id,username,nickname,bio,created_at FROM users WHERE id=?'
-);
-$stmt->execute([$currentUser['id']]);
-```
-
-공개 프로필이 필요하다면 본인 전용 정보와 공개 정보를 구분해 반환한다. 위 코드는 본인 전용 정책을 가정한 예시다.
-
----
-
-### 2.5 CSRF 방어 누락
-
-#### 개요
-
-삭제를 GET 요청으로 처리하는 기능이 있었고, POST로 데이터를 바꾸는 기능에도 CSRF 토큰 검증이 없었다.
-
-#### 발견 위치
-
-- 기능: 게시물·댓글·관리자 삭제, 프로필 수정 등 상태 변경 기능
-- 경로: 각 기능의 처리 파일, 실제 경로 생략
-- 파라미터: 대상 ID 및 변경할 값
-- 확인 방식: White-Box / 로그인·회원가입 폼 관찰
-- 조건: 취약 모드와 별개. 실제 공격 성공 여부는 세션 쿠키 전송 조건에도 영향을 받음
-
-#### 원인
-
-댓글 삭제에서는 GET 파라미터와 로그인 상태를 조건으로 삭제 분기에 진입했다. 다음은 원본 제어 흐름을 줄여 표현한 것이다.
-
-```php
-// 원본 흐름 요약: GET 요청이 삭제 작업으로 이어짐
-if (isset($_GET['delete_comment']) && is_logged_in()) {
-    // 댓글 삭제 처리
+if (VULN_MODE) {
+    $stmt = $pdo->prepare(
+        'SELECT id,username,nickname,bio,created_at FROM users WHERE id=?'
+    );
+    $stmt->execute([$id]);
 }
 ```
 
-브라우저가 쿠키를 함께 보내면 로그인한 사용자의 요청으로 취급된다. 이때 사용자가 해당 변경을 의도했는지 확인하는 토큰 검증이 없다. 버튼의 확인창은 다른 경로로 들어오는 요청을 막지 못한다.
+로그인 여부만 확인하며 요청한 `id`가 현재 사용자 ID인지, 또는 요청자가 해당 프로필을 볼 권한이 있는지 확인하지 않는다.
 
-#### 검증
+### 검증
 
-소스에서 상태 변경 요청의 메서드와 토큰 검증 유무를 확인했다. 실제 교차 사이트 요청을 보내 삭제나 수정을 유발하지는 않았다. 호스팅 환경의 쿠키 설정과 별도 방어 여부도 확인하지 않았다.
+- 테스트 계정: `codex_audit_20260923_0538`
+- 본인 프로필: `/profile.php` → 테스트 계정의 닉네임·아이디·가입일 표시
+- 타인 프로필: `/profile.php?id=1` → 초기 관리자 프로필의 닉네임·아이디·가입일 표시
+- 두 요청 모두 `HTTP 200`
+- 검증 직후 `/delete_account.php`에 정상 POST를 보내 테스트 계정 삭제 완료(`HTTP 302`)
+- 정리 검증: 삭제한 자격증명으로 다시 로그인했을 때 `HTTP 200`과 `로그인 정보가 올바르지 않습니다.`가 반환되어 계정 삭제를 재확인
 
-#### 영향
+초기 설치 데이터인 관리자 프로필 외의 사용자 ID는 열거하지 않았다.
 
-- 조건이 맞으면 사용자가 의도하지 않은 변경·삭제가 해당 사용자의 권한으로 실행될 수 있다.
-- 관리자 기능에서 발생하면 영향 범위가 더 커질 수 있다.
+### 영향
 
-**위험도:** High
-
-#### 대응 방안
-
-상태 변경은 POST로 제한하고 세션에 연결된 CSRF 토큰을 검사한다. 아래는 공통 설정에서 세션을 시작한 뒤 사용할 예시다.
-
-```php
-// 폼을 표시하기 전에 생성
-if (!isset($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-
-// 상태 변경 처리의 맨 앞에서 호출
-function require_csrf_post() {
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        header('Allow: POST');
-        http_response_code(405);
-        exit;
-    }
-    $token = $_POST['csrf_token'] ?? null;
-    $expected = $_SESSION['csrf_token'] ?? null;
-    if (!is_string($token) || !is_string($expected)
-        || !hash_equals($expected, $token)) {
-        http_response_code(403);
-        exit('요청을 확인할 수 없습니다.');
-    }
-}
-```
-
-폼에는 세션 토큰을 hidden 필드로 넣는다.
-
-```php
-<input type="hidden" name="csrf_token"
-       value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
-```
-
-각 변경 처리에서 `require_csrf_post()`를 호출하고 그다음 권한 확인과 DB 변경을 진행한다. GET 요청에는 화면만 표시한다. 쿠키의 SameSite 설정도 함께 확인하되 토큰 검증을 대체하지 않는다.
-
----
-
-### 2.6 계정 상태·권한 변경 후 세션 유지
-
-#### 개요
-
-현재 계정이 존재하는지, 관리자 권한이 유지되는지 DB에서 다시 확인하지 않고 세션 값을 신뢰했다.
-
-#### 발견 위치
-
-- 기능: 로그인·관리자 여부 확인, 계정 삭제 후 인증 처리
-- 경로: 공통 인증 및 계정 관리 파일, 실제 경로 생략
-- 입력: 세션의 `user_id`, `is_admin`
-- 확인 방식: White-Box
-
-#### 원인
-
-```php
-function is_logged_in() {
-    return isset($_SESSION['user_id']);
-}
-
-function is_admin() {
-    return isset($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1;
-}
-```
-
-자기 계정 삭제는 현재 세션을 끝내지만 다른 브라우저의 세션까지 무효화하지 않는다. 관리자에 의한 계정 삭제도 DB 행만 삭제한다. 로그인 시 저장한 관리자 값은 DB에서 권한을 바꾼 뒤에도 남을 수 있다.
-
-#### 검증
-
-인증 함수, 계정 삭제 처리, 글·댓글 작성 흐름을 함께 읽었다. 요청 시 계정 존재 여부를 다시 확인하는 로직은 없었고, 제공된 DB 스키마에도 작성자 계정의 존재를 강제하는 외래 키는 없었다. 여러 브라우저에서 로그인한 뒤 계정을 삭제하는 재현 시험은 하지 않았다.
-
-#### 영향
-
-- 삭제된 계정의 기존 세션이 로그인 상태로 인정될 수 있다.
-- 관리자 권한을 제거해도 기존 세션이 관리자 기능에 접근할 수 있다.
-
-**위험도:** High
-
-#### 대응 방안
-
-보호된 요청마다 현재 사용자 정보를 조회하고, 그 결과로 권한을 판단한다. 아래는 로그인 필수 처리에 넣을 예시다.
-
-```php
-$stmt = $pdo->prepare('SELECT id, is_admin FROM users WHERE id=?');
-$stmt->execute([$_SESSION['user_id'] ?? 0]);
-$currentUser = $stmt->fetch();
-
-if (!$currentUser) {
-    $_SESSION = [];
-    session_destroy();
-    http_response_code(401);
-    exit('다시 로그인해 주세요.');
-}
-
-// 관리자 전용 처리에서 추가 검사
-if ((int)$currentUser['is_admin'] !== 1) {
-    http_response_code(403);
-    exit('관리자만 접근할 수 있습니다.');
-}
-```
-
-마지막 관리자 검사는 관리자 전용 기능에만 적용한다. 기존 공통 인증 함수를 이 흐름으로 바꾸고 모든 보호된 기능에서 사용해야 한다. 비밀번호 변경이나 강제 로그아웃까지 처리하려면 세션 버전 또는 서버 측 세션 목록을 이용한 전체 세션 무효화도 필요하다.
-
----
-
-### 2.7 약한 비밀번호 허용
-
-#### 개요
-
-비밀번호는 해시로 저장하지만 가입 단계의 검사는 빈 값 여부에 그쳤다.
-
-#### 발견 위치
-
-- 기능: 회원가입
-- 경로: 회원가입 처리 파일, 실제 경로 생략
-- 파라미터: `password`
-- 확인 방식: White-Box
-
-#### 원인
-
-```php
-if ($username === '' || $password === '' || $nickname === '') {
-    $message = '모든 항목을 입력하세요.';
-}
-```
-
-원본에서는 이 조건을 통과하면 비밀번호를 해시해 저장했다. 해시는 저장된 비밀번호 보호를 위한 처리이고, 쉽게 추측할 수 있는 비밀번호를 막는 기능은 아니다.
-
-#### 검증
-
-서버 코드에 최소 길이나 흔한 비밀번호를 검사하는 절차가 없는 것을 확인했다. 실제 약한 비밀번호로 계정을 만들거나 비밀번호 대입 시험을 하지는 않았다.
-
-#### 영향
-
-- 짧거나 흔한 비밀번호가 허용되어 계정 추측 공격에 취약해질 수 있다.
+- 사용자 아이디, 닉네임, 자기소개, 가입일의 비인가 조회
+- 연속 ID 열거를 통한 회원 목록 수집
+- 피싱·계정 공격을 위한 사용자 정보 확보
 
 **위험도:** Medium
 
-#### 대응 방안
+### 대응 방안
 
-서버에서 비밀번호 정책을 검사한다. 다음은 길이 검사 부분의 예시이며 이것만으로 전체 정책이 완성되지는 않는다.
+프로필이 비공개 기능이라면 클라이언트가 전달한 사용자 ID를 사용하지 말고 세션의 ID만 사용한다.
 
 ```php
-$password = $_POST['password'] ?? null;
-if (!is_string($password) || mb_strlen($password, 'UTF-8') < 15) {
-    http_response_code(400);
-    exit('비밀번호는 15자 이상 입력해 주세요.');
-}
+require_login();
+
+$stmt = $pdo->prepare(
+    'SELECT id, username, nickname, bio, created_at
+       FROM users
+      WHERE id = ?'
+);
+$stmt->execute([(int)$_SESSION['user_id']]);
+$user = $stmt->fetch();
 ```
 
-15자는 이 예시에서 정한 정책값이다. 흔하거나 유출된 비밀번호 차단, 로그인 시도 제한도 함께 검토한다. 최대 길이와 다국어 처리는 사용하는 해시 알고리즘의 입력 제한을 확인해 정하고, 긴 비밀번호를 조용히 잘라 저장하지 않는다. 기존 `password_hash()`와 `password_verify()`는 유지한다.
+공개 프로필이 필요한 경우에는 공개 여부 컬럼과 차단 관계 등을 별도로 두고, 반환 필드를 최소화하며 서버 측 정책으로 접근을 허용해야 한다.
 
 ---
 
-### 2.8 DB 예외 메시지 노출
+## 2.4 댓글 삭제 IDOR
 
-#### 개요
+### 개요
 
-DB 연결에 실패하면 상세 예외 메시지를 응답에 포함했다.
+로그인 사용자는 자신의 댓글뿐 아니라 임의의 댓글 ID를 지정해 다른 사용자의 댓글도 삭제할 수 있다. 삭제 링크도 모든 로그인 사용자에게 표시된다.
 
-#### 발견 위치
+### 발견 위치
 
-- 기능: DB 연결 오류 처리
-- 경로: 공통 설정 파일, 실제 경로 생략
-- 파라미터: 직접적인 사용자 입력 없음
+- 기능: 댓글 삭제
+- 경로: `/post.php`
+- 파라미터: `delete_comment`
+- 소스 위치: `post.php:15-23`, `post.php:51`
 - 확인 방식: White-Box
-- 조건: DB 연결 중 예외가 발생할 때
+- 관련 분류: CWE-639, CWE-862 (Missing Authorization)
 
-#### 원인
+### 원인
 
 ```php
-catch (PDOException $e) {
-    die('DB 연결 실패: ' . htmlspecialchars($e->getMessage()));
+if (isset($_GET['delete_comment']) && is_logged_in()) {
+    $cid = (int)$_GET['delete_comment'];
+    if (VULN_MODE) {
+        $pdo->prepare('DELETE FROM comments WHERE id=?')->execute([$cid]);
+    }
+    header('Location: post.php?id='.$id);
+    exit;
 }
 ```
 
-`htmlspecialchars()`는 HTML 문맥의 출력 처리다. 메시지에 담긴 내부 정보를 가리는 처리는 아니므로 연결 오류의 상세 내용이 그대로 전달될 수 있다.
+로그인 여부만 확인하고 댓글의 `user_id`와 세션의 `user_id`를 비교하지 않는다. 또한 상태 변경을 GET 요청으로 처리한다.
 
-#### 검증
+### 검증
 
-예외 메시지가 응답으로 이어지는 코드를 확인했다. 운영 중인 DB 연결을 일부러 실패시키지는 않았으며 실제 노출 메시지도 수집하지 않았다.
+제공 소스에서 삭제 쿼리와 누락된 소유권 조건을 확인했다. 실제 서버의 타인 댓글을 삭제하는 행위는 데이터 무결성에 영향을 주므로 수행하지 않았다.
 
-#### 영향
+### 영향
 
-- 오류 내용에 따라 DB 접속 대상이나 내부 구성에 관한 정보가 노출될 수 있다.
+- 다른 사용자의 댓글 무단 삭제
+- 게시판 기록 훼손 및 사용자 간 분쟁 유발
+- CSRF와 결합한 자동 삭제 공격
 
-**위험도:** Low
+**위험도:** Medium
 
-#### 대응 방안
+### 대응 방안
+
+삭제는 POST로만 처리하고, 댓글 작성자 또는 관리자임을 서버에서 검증한다.
 
 ```php
-catch (PDOException $e) {
-    error_log('Database connection failed: ' . $e->getMessage());
-    http_response_code(503);
-    exit('일시적으로 서비스를 이용할 수 없습니다.');
+require_login();
+verify_csrf_token($_POST['csrf_token'] ?? '');
+
+$cid = filter_input(INPUT_POST, 'comment_id', FILTER_VALIDATE_INT);
+$stmt = $pdo->prepare('SELECT user_id FROM comments WHERE id = ?');
+$stmt->execute([$cid]);
+$comment = $stmt->fetch();
+
+if (!$comment ||
+    ((int)$comment['user_id'] !== (int)$_SESSION['user_id'] && !is_admin())) {
+    http_response_code(403);
+    exit('삭제 권한이 없습니다.');
+}
+
+$pdo->prepare('DELETE FROM comments WHERE id = ?')->execute([$cid]);
+```
+
+---
+
+## 2.5 전역적 CSRF 방어 부재 및 GET 상태 변경
+
+### 개요
+
+상태를 변경하는 폼과 링크에 CSRF 토큰 검증이 없다. 특히 관리자 회원·게시글 삭제, 댓글 삭제, 게시글 삭제 및 로그아웃이 GET 요청으로 실행되어 외부 링크나 이미지 요청만으로도 동작할 수 있다.
+
+### 발견 위치
+
+- 관리자 회원·게시글 삭제: `/admin.php?delete_user=...`, `/admin.php?delete_post=...`
+- 댓글 삭제: `/post.php?id=...&delete_comment=...`
+- 게시글 삭제: `/post_delete.php?id=...`
+- 로그아웃: `/logout.php`
+- 토큰 없는 POST: 프로필 수정, 게시글 작성·수정, 댓글 작성, 회원 탈퇴
+- 확인 방식: White-Box
+- 관련 분류: CWE-352 (Cross-Site Request Forgery)
+
+### 원인
+
+```php
+// admin.php
+if (isset($_GET['delete_user'])) {
+    $uid = (int)$_GET['delete_user'];
+    $pdo->prepare('DELETE FROM users WHERE id=?')->execute([$uid]);
+}
+
+// delete_account.php
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $pdo->prepare('DELETE FROM users WHERE id = ?')
+        ->execute([$_SESSION['user_id']]);
 }
 ```
 
-방문자에게는 일반적인 오류만 보여주고 상세 내용은 접근이 제한된 서버 로그에 남긴다. 로그가 웹에서 공개되지 않도록 보관 위치와 권한도 확인한다.
+요청 출처를 검증할 무작위 토큰이 없고, 일부 중요 동작은 안전한 조회 메서드인 GET에 연결되어 있다. 브라우저의 기본 `SameSite=Lax` 동작에만 기대더라도 최상위 GET 이동은 차단되지 않으므로 충분한 방어가 아니다.
+
+### 검증
+
+모든 상태 변경 코드와 폼을 정적으로 점검했으며 `csrf`, `token` 또는 동등한 난수 검증 로직이 없음을 확인했다. 실제 회원·게시글·댓글에 대한 교차 사이트 삭제 요청은 수행하지 않았다.
+
+### 영향
+
+- 로그인 사용자의 프로필·게시글·댓글 무단 변경
+- 관리자 권한으로 회원 또는 게시글 삭제
+- 사용자 계정 탈퇴 유도
+- 강제 로그아웃
+
+**위험도:** High
+
+### 대응 방안
+
+세션별 CSRF 토큰을 생성해 모든 상태 변경 POST 요청에서 상수 시간 비교로 검증한다. GET은 조회에만 사용한다.
+
+```php
+function csrf_token(): string {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function verify_csrf_token(string $token): void {
+    if (empty($_SESSION['csrf_token']) ||
+        !hash_equals($_SESSION['csrf_token'], $token)) {
+        http_response_code(403);
+        exit('잘못된 요청입니다.');
+    }
+}
+```
+
+```php
+<form method="post" action="admin.php">
+  <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+  <input type="hidden" name="action" value="delete_user">
+  <input type="hidden" name="user_id" value="<?= e($u['id']) ?>">
+  <button type="submit">삭제</button>
+</form>
+```
+
+추가적으로 `Origin` 또는 `Referer` 검증을 보조 방어로 적용하고, 세션 쿠키에는 명시적인 `SameSite` 속성을 설정한다.
+
+---
+
+## 2.6 세션 쿠키 및 HTTP 보안 헤더 미흡
+
+### 개요
+
+실제 서버가 발급한 `PHPSESSID` 쿠키에 `Secure`, `HttpOnly`, `SameSite` 속성이 없었다. 또한 대표 응답에 HSTS, CSP, `X-Content-Type-Options` 및 클릭재킹 방어 헤더가 없었다.
+
+### 발견 위치
+
+- 기능: 전역 세션 및 HTTP 응답
+- 경로: `/`, `/login.php` 등
+- 소스 위치: `config.php:11`
+- 확인 방식: Black-Box + White-Box
+- 관련 분류: CWE-614, CWE-1004, CWE-693
+
+### 원인 및 검증
+
+소스는 쿠키 보안 옵션 설정 없이 바로 세션을 시작한다.
+
+```php
+session_start();
+```
+
+실제 서버 응답은 다음 형태였다. 세션 값은 보고서에서 제거했다.
+
+```http
+Set-Cookie: PHPSESSID=<redacted>; expires=...; Max-Age=86400; path=/
+```
+
+관찰된 응답에는 `Secure`, `HttpOnly`, `SameSite`가 없었고, `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options`도 없었다.
+
+### 영향
+
+- 비암호화 연결이 허용될 경우 세션 쿠키 노출 가능성
+- 향후 XSS 발생 시 JavaScript를 통한 세션 쿠키 탈취 가능성 증가
+- CSRF 및 클릭재킹 방어 심층성 저하
+- MIME 스니핑과 콘텐츠 주입 공격의 영향 확대 가능성
+
+**위험도:** Medium
+
+### 대응 방안
+
+`session_start()` 전에 쿠키 옵션과 strict mode를 설정한다.
+
+```php
+ini_set('session.use_strict_mode', '1');
+ini_set('session.use_only_cookies', '1');
+
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'secure' => true,
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
+session_start();
+```
+
+웹 서버 또는 공통 PHP 진입점에서 다음 정책을 서비스 특성에 맞게 적용한다.
+
+```php
+header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+header("Content-Security-Policy: default-src 'self'; frame-ancestors 'none'; base-uri 'self'");
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+```
+
+HSTS는 모든 하위 도메인이 HTTPS를 지원하는지 확인한 뒤 적용해야 한다.
 
 ---
 
 ## 3. 취약점 요약
 
-| 번호 | 항목 | 위험도 | 주요 영향 | 조치 상태 |
-| --- | --- | --- | --- | --- |
-| S01 | 로그인 SQL 인젝션 | High | 인증에 사용되는 조회 결과 조작 가능 | 수정 제안 / 적용 미확인 |
-| S02 | 검색 SQL 인젝션 | High | 검색 조건 변조 및 데이터 노출 가능 | 수정 제안 / 적용 미확인 |
-| S03 | 댓글 삭제 권한 누락 | High | 타인 댓글 삭제 가능 | 수정 제안 / 적용 미확인 |
-| S04 | 프로필 조회 권한 | Medium, 조건부 | 비공개 정보라면 타인 조회 문제 | 공개 정책 확인 필요 |
-| S05 | CSRF 방어 누락 | High | 의도하지 않은 변경·삭제 가능 | 수정 제안 / 적용 미확인 |
-| S06 | 세션 상태 재검증 누락 | High | 삭제·권한 변경 후 접근 유지 가능 | 수정 제안 / 적용 미확인 |
-| S07 | 약한 비밀번호 허용 | Medium | 계정 추측 공격 위험 증가 | 수정 제안 / 적용 미확인 |
-| S08 | DB 오류 정보 노출 | Low | 내부 구성 정보 노출 가능 | 수정 제안 / 적용 미확인 |
+| 취약점 | 위치 | 위험도 | 주요 영향 | 조치 상태 |
+|---|---|---|---|---|
+| 로그인 SQL Injection 및 인증 우회 | `login.php` | High | 임의 인증 및 관리자 권한 상승 가능 | 미조치 |
+| 게시판 검색 SQL Injection | `board.php` | High | DB 정보 유출·변조 가능 | 미조치 |
+| 프로필 조회 IDOR | `profile.php` | Medium | 다른 회원 프로필 열람 | 미조치 |
+| 댓글 삭제 IDOR | `post.php` | Medium | 타인 댓글 무단 삭제 | 미조치 |
+| CSRF 방어 부재 | 상태 변경 기능 전반 | High | 관리자·사용자 권한으로 데이터 변경·삭제 | 미조치 |
+| 세션 쿠키·보안 헤더 미흡 | 전역 | Medium | 세션 및 브라우저 방어 약화 | 미조치 |
+
+### 추가 관찰사항
+
+- `config.php`의 `VULN_MODE`가 `true`이고 실제 로그인 화면도 취약 모드 활성화를 안내한다. 운영 배포 시 단순히 플래그만 바꾸는 방식보다 취약 코드 자체를 제거해야 한다.
+- `README.txt`와 `install.sql`에 초기 관리자 아이디 및 비밀번호가 평문으로 기재되어 있다. 다만 실제 서버에서 문서상 비밀번호와 제공 해시에서 추정 가능한 후보를 각각 1회만 확인했으며 둘 다 로그인에 실패했다. 따라서 현재 서버의 기본 관리자 비밀번호 취약점은 확인되지 않았다.
+- `install.sql`의 주석에 적힌 비밀번호와 저장된 bcrypt 해시가 일치하지 않아 초기 설치 후 관리자 접근 장애가 발생할 수 있다. 초기 관리자 비밀번호를 코드·문서에 고정하지 말고 설치 시 일회성 난수로 생성한 뒤 최초 로그인에서 변경하도록 해야 한다.
+- PHP 파일 전체에 대해 `php -l` 구문 검사를 수행했으며 구문 오류는 발견되지 않았다.
+- 사용자 출력에는 대체로 `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`가 적용되어 이번 범위에서는 반사·저장 XSS를 확인하지 못했다.
+- 게시글 수정·삭제는 작성자 또는 관리자 검사를 수행하여 해당 기능에서는 직접적인 IDOR을 확인하지 못했다.
 
 ---
 
 ## 4. 공통 개선 사항
 
-- 로그인과 검색에서 문자열로 쿼리를 만드는 분기를 제거하고 바인딩을 사용한다.
-- 댓글 등 개별 데이터에 접근할 때 현재 사용자의 권한을 서버에서 확인한다.
-- 변경·삭제는 POST로 받고 CSRF 토큰을 검증한다.
-- 세션에 값이 있다는 이유만으로 로그인·관리자 권한을 인정하지 않는다.
-- 프로필의 공개 범위와 반환할 필드를 먼저 정한다.
-- 비밀번호 정책과 오류 메시지 처리를 보완한다.
+점검 결과를 바탕으로 다음과 같은 보안 개선이 필요하다.
 
-검토한 출력 코드에는 HTML 이스케이프가 있었고 로그인 성공 시 세션 ID도 재생성했다. 이 처리는 유지한다. 취약 모드를 끄면 로그인·검색과 일부 접근 제어 분기는 바뀌지만 CSRF, 세션, 비밀번호 정책, DB 오류 처리는 별도로 고쳐야 한다.
+- 사용자 입력값을 SQL에 결합하지 않고 모든 쿼리에 Prepared Statement 사용
+- `VULN_MODE`와 의도적으로 취약한 코드 경로를 배포본에서 완전히 제거
+- 서버 측 인증 및 객체 단위 권한 검증을 공통 함수 또는 정책 계층으로 통합
+- 모든 상태 변경을 POST로 제한하고 CSRF 토큰 검증 적용
+- 세션 쿠키에 `Secure`, `HttpOnly`, `SameSite` 설정
+- CSP, HSTS, `X-Content-Type-Options` 등 보안 헤더 적용
+- 관리자 기본 자격증명 제거 및 다중 인증·로그인 제한 적용
+- DB 계정 최소 권한 적용 및 인증·권한·관리자 동작 감사 로그 기록
+- 오류 메시지와 예외 상세를 사용자에게 노출하지 않고 서버 로그에만 기록
+- 수정 후 동일 테스트 케이스로 회귀 테스트 수행
 
-수정 후에는 정상 기능 시험과 함께 두 시험 계정 간 댓글 삭제 차단, 비공개 프로필 접근 차단, 삭제된 계정의 기존 세션 차단을 확인한다. GET 요청과 누락되거나 잘못된 CSRF 토큰으로 데이터가 바뀌지 않는지도 확인해야 한다. 이 재시험은 아직 수행하지 않았다.
+권장 조치 우선순위는 다음과 같다.
+
+1. 로그인 및 검색 SQL Injection 제거
+2. CSRF 방어 적용과 모든 삭제 기능의 POST 전환
+3. 프로필·댓글의 객체 단위 인가 적용
+4. 세션 쿠키 및 HTTP 보안 헤더 강화
+5. 배포·초기 계정·감사 로그 정책 정비
 
 ---
 
 ## 5. 결론
 
-소스 검토에서 **보안 문제 7건과 정책 확인이 필요한 프로필 조회 항목 1건**을 정리했다. 이를 실제 공격에 성공한 8건으로 해석해서는 안 된다.
+이번 점검에서는 총 **6개의 취약점**을 확인했다.
 
-| 구분 | 항목 수 |
-| --- | --- |
-| High | 5건 |
-| Medium | 1건 |
-| Low | 1건 |
-| 정책 확인 필요 | 1건 — 비공개 정책이면 Medium |
+| 취약점 | 위험도 |
+|---|---|
+| 로그인 SQL Injection 및 인증 우회 | High |
+| 게시판 검색 SQL Injection | High |
+| 프로필 조회 IDOR | Medium |
+| 댓글 삭제 IDOR | Medium |
+| 전역적 CSRF 방어 부재 | High |
+| 세션 쿠키 및 HTTP 보안 헤더 미흡 | Medium |
 
-먼저 고칠 부분은 로그인과 검색의 SQL 문자열 연결이다. 두 기능 모두 입력을 SQL에 직접 넣는 같은 실수가 있었다. 바인딩으로 바꾼 뒤에는 댓글 소유자 확인과 공통 인증 처리를 점검해야 한다.
+가장 시급한 문제는 **로그인 SQL Injection**이다. 실제 서버에서 데이터베이스에 계정을 생성하지 않고도 합성 사용자로 인증된 세션을 발급받을 수 있었으며, 소스 구조상 관리자 권한 값까지 제어할 수 있다. 게시판 검색 SQL Injection과 결합하면 기밀성·무결성·권한 통제 전반에 큰 영향을 줄 수 있으므로 우선 수정해야 한다.
 
-로그인 우회 시험이 실패했다고 쿼리가 안전한 것은 아니었고, 쿼리에 바인딩을 썼다고 삭제 권한까지 확인되는 것도 아니었다. 이번 코드에서는 입력 처리와 권한 검사를 각각 확인할 필요가 있었다.
+SQL Injection을 제거한 뒤에는 CSRF와 객체 단위 접근통제를 함께 보완해야 한다. 개별 취약 코드만 수정하는 데 그치지 않고 인증·인가, 입력 처리, 상태 변경 요청, 세션 보호를 공통 보안 계층으로 구성하는 것이 필요하다.
 
 ---
 
 ## 6. 참고
 
-### 테스트 원칙과 수행 범위
+### 테스트 원칙 및 정리 결과
 
-- 직접 구축한 환경과 제공된 소스만 대상으로 삼았다.
-- 실제 사용자 정보 추출, 타인 데이터 수정·삭제, 서비스 가용성에 영향을 주는 시험은 하지 않았다.
-- 웹 시험은 화면 확인과 제한적인 로그인 실패 응답 관찰에 그쳤다.
-- 시험 계정이나 게시물은 생성하지 않아 별도 정리할 시험 데이터는 없었다.
-- 수정 적용, 관리자 권한 획득, CSRF 재현, 계정 삭제 후 세션 재시험은 수행하지 않았다.
+- 허가된 환경에서만 테스트 수행
+- 데이터 변경 없는 요청을 우선 사용
+- 시간 지연, 대량 열거, 자동화 스캔 및 서비스 가용성에 영향을 주는 테스트 미수행
+- 실제 게시글·댓글·회원·관리자 데이터 변경 또는 삭제 미수행
+- IDOR 검증용 일반 계정 1개 생성 후 즉시 탈퇴 완료
+- SQL Injection 인증 우회 세션 검증 후 즉시 로그아웃 완료
+- 초기 관리자 비밀번호는 소스에 근거한 후보 2개만 각각 1회 확인하고 중단
 
 ### 참고 자료
 
+- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
+- [OWASP Web Security Testing Guide](https://owasp.org/www-project-web-security-testing-guide/)
 - [OWASP SQL Injection Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html)
+- [OWASP Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html)
 - [OWASP CSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)
+- [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
+- [CWE-89: SQL Injection](https://cwe.mitre.org/data/definitions/89.html)
+- [CWE-352: Cross-Site Request Forgery](https://cwe.mitre.org/data/definitions/352.html)
+- [CWE-639: Authorization Bypass Through User-Controlled Key](https://cwe.mitre.org/data/definitions/639.html)
