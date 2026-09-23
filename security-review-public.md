@@ -571,5 +571,3 @@ catch (PDOException $e) {
 
 - [OWASP SQL Injection Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html)
 - [OWASP CSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)
-
-이 보고서는 공개용 요약본이다. 코드 블록은 원본 일부 발췌, 표시한 흐름 요약, 수정 제안으로 구분했으며 전체 애플리케이션을 대체하는 완성된 패치는 아니다.
