@@ -1,4 +1,4 @@
-# SECURE MART 보안 스터디 모의해킹 과제
+# 웹사이트 취약점 분석
 
 **작성일:** 2026-09-23  
 **분류:** Hacking / Security / Web  
