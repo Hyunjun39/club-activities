@@ -1,0 +1,35 @@
+name: Restore Pages publication
+on:
+  workflow_dispatch:
+  push:
+    paths: [".github/workflows/pages-restore.yml"]
+permissions:
+  contents: read
+  pages: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Inspect and cancel the stale deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          endpoint="repos/$GH_REPO/pages/deployments/dc2f7919595fafa5f9dc3a6201681e64fb646d97"
+          gh api "$endpoint"
+          gh api --method POST "$endpoint/cancel"
+          for attempt in 1 2 3 4 5 6; do
+            sleep 10
+            state=$(gh api "$endpoint" --jq .status)
+            printf "Pages deployment status: %s\n" "$state"
+            case "$state" in
+              queued|in_progress|deployment_in_progress|cancel_in_progress) ;;
+              *) break ;;
+            esac
+          done
+      - name: Request a fresh Pages build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh api --method POST "repos/$GH_REPO/pages/builds"
