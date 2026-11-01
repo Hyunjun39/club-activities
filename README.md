@@ -7,4 +7,4 @@
 
 ## 동아리 심화 활동
 
-[OpenModel Lab 취약점 분석 및 재현 기록](https://hyunjun39.github.io/club-activities/advanced-study.html) · [보고서](advanced-study.md) · [실습 증거 파일](study-evidence.zip)
+[OpenModel Lab 취약점 분석 및 재현 기록](https://hyunjun39.github.io/club-activities/advanced-study/) · [보고서](advanced-study.md) · [실습 증거 파일](study-evidence.zip)

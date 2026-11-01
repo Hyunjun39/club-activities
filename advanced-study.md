@@ -210,7 +210,7 @@ csrf={A의 유효한 토큰}&user_id=16&display_name=Audit+controlled+B+IDOR+ver
 
 ## 5. 증거 보관 및 정리
 
-[실습 증거 파일 내려받기](study-evidence.zip)
+[실습 증거 파일 내려받기](https://hyunjun39.github.io/club-activities/study-evidence.zip)
 
 - 증거 디렉터리: `lockey_audit_evidence/`
 - 보고서에는 비밀번호, 세션 쿠키와 CSRF 토큰을 기재하지 않았다. 저장된 주요 응답 기록에서도 해당 값은 `[REDACTED]` 처리했다.
